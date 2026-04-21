@@ -1,0 +1,70 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - DynamicMaster.WEB</title>
+
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+</head>
+
+<body>
+
+    <div class="d-flex">
+
+        <!-- 🔥 SIDEBAR -->
+        <div class="bg-dark text-white p-3" style="width:250px; min-height:100vh;">
+
+            <h4 class="text-center mb-4">Dynamic Form</h4>
+
+            <ul class="nav flex-column">
+
+                <li class="nav-item mb-2">
+                    <a class="nav-link text-white"
+                           asp-controller="DynamicForm"
+                           asp-action="DynamicFormIndex">
+                        ➕ Create New
+                    </a>
+                </li>
+
+                <li class="nav-item mb-2">
+                    <a class="nav-link text-white"
+                           asp-controller="Home"
+                           asp-action="ListForms">
+                        📄 Saved List
+                    </a>
+                </li>
+
+            </ul>
+        </div>
+
+        <!-- 🔥 MAIN CONTENT -->
+        <div class="flex-grow-1">
+
+            <!-- TOP NAVBAR -->
+            <nav class="navbar navbar-light bg-light border-bottom px-3">
+                <span class="navbar-brand mb-0 h5">@ViewData["Title"]</span>
+            </nav>
+
+            <!-- PAGE CONTENT -->
+            <div class="container-fluid mt-3">
+                @RenderBody()
+            </div>
+
+        </div>
+
+    </div>
+
+    <footer class="border-top text-muted text-center p-2">
+        &copy; 2026 - DynamicMaster
+    </footer>
+
+    <script src="~/lib/jquery/dist/jquery.min.js"></script>
+    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="~/js/site.js"></script>
+
+    @RenderSection("Scripts", required: false)
+
+</body>
+</html>

@@ -1,0 +1,910 @@
+﻿@{
+    ViewData["Title"] = "Dynamic Form Builder";
+}
+
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+
+<style>
+    .form-builder-box {
+        border: 2px solid #000;
+        padding: 20px;
+        border-radius: 8px;
+        background: #fafafa;
+    }
+
+    .field-card {
+        padding: 12px;
+        border-radius: 8px;
+        background: white;
+        border: 1px solid #ddd;
+        position: relative;
+    }
+
+    .action-buttons {
+        position: absolute;
+        top: 5px;
+        right: 5px;
+        display: none;
+    }
+
+    .field-card:hover .action-buttons {
+        display: block;
+    }
+</style>
+
+<div class="container mt-3">
+
+
+
+    <div class="d-flex justify-content-between mb-3">
+        <h3 id="formTitle">
+            Dynamic Form Builder
+            <button onclick="editTitle()">✏️</button>
+        </h3>
+
+        <div class="d-flex justify-content-between mb-2">
+            <div id="stageTabs" class="d-flex gap-2"></div>
+
+            <button class="btn btn-secondary" onclick="addStage()">
+                + Add Stage
+            </button>
+        </div>
+
+        <!-- ✅ ONLY JS TRIGGER (Removed data-bs-toggle to avoid duplicate backdrop) -->
+        <button class="btn btn-primary" onclick="openModal()">
+            Create
+        </button>
+    </div>
+
+    <!-- FORM PREVIEW -->
+    <div id="formPreview" class="form-builder-box"></div>
+
+    <div class="text-end mt-3">
+        <button id="submitForm" class="btn btn-success">
+            Submit Form
+        </button>
+    </div>
+
+</div>
+
+<!-- MODAL -->
+<div class="modal fade" id="fieldModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+
+            <div class="modal-header">
+                <h5>Add Field</h5>
+                <button class="btn-close" onclick="closeModal()"></button>
+            </div>
+
+            <div class="modal-body">
+
+                <select id="fieldType" class="form-control mb-2">
+                    <option value="">--Select--</option>
+                    <option value="text">Textbox</option>
+                    <option value="number">Number</option>
+                    <option value="date">Date</option>
+                    <option value="textarea">Textarea</option>
+                    <option value="file">File Upload</option>
+                    <option value="dropdown">Dropdown</option>
+                    <option value="radio">Radio</option>
+                    <option value="table">Table</option>
+                    <option value="heading">Heading</option>
+                    <option value="span">Span</option>
+                </select>
+
+                <input type="text" id="labelName" class="form-control mb-2" placeholder="Label Name" />
+
+                <!-- Table Header Input -->
+                <div id="tableHeaderDiv" style="display:none;">
+
+                    <div id="tableColumnsContainer"></div>
+
+                    <button type="button" class="btn btn-sm btn-primary mt-2" onclick="addTableColumn()">
+                        + Add Column
+                    </button>
+
+                </div>
+
+                <!-- Heading Level -->
+                <div id="headingLevelDiv" style="display:none;">
+                    <select id="headingLevel" class="form-control mb-2">
+                        <option value="h1">H1</option>
+                        <option value="h2">H2</option>
+                        <option value="h3">H3</option>
+                        <option value="h4">H4</option>
+                        <option value="h5">H5</option>
+                        <option value="h6">H6</option>
+                    </select>
+                </div>
+
+                <!-- File Accept -->
+                <div id="fileOptionsDiv" style="display:none;">
+                    <input type="text" id="fileAccept" class="form-control mb-2" placeholder=".pdf,.jpg,.png" />
+                    <label>
+                        <input type="checkbox" id="fileMultiple" /> Allow Multiple
+                    </label>
+                </div>
+
+                <div id="optionsDiv" style="display:none;">
+                    <select id="optionSource" class="form-control mb-2">
+                        <option value="manual">Manual</option>
+                        <option value="master">From Master</option>
+                    </select>
+
+                    <input type="text" id="optionsInput" class="form-control mb-2" placeholder="Yes,No" />
+
+                    <select id="masterDropdown" class="form-control" style="display:none;"></select>
+                </div>
+
+                <div class="row mb-2">
+                    <div class="col-md-4">
+                        <label>Color</label>
+                        <input type="color" id="labelColor" class="form-control" value="#000000" />
+                    </div>
+                    <div class="col-md-4">
+                        <label>Required</label>
+                        <select id="isRequired" class="form-control">
+                            <option value="false">No</option>
+                            <option value="true">Yes</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label>Line Break</label>
+                        <select id="isBreak" class="form-control">
+                            <option value="false">No</option>
+                            <option value="true">Yes</option>
+                        </select>
+                    </div>
+                </div>
+
+                <button id="addField" class="btn btn-success w-100">
+                    Add / Update Field
+                </button>
+
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+    <script>
+        let formStages = [];
+        let currentStageIndex = -1;
+        let editIndex = -1;
+        let masterDataMap = {};
+        let modalInstance = null;
+
+        /* ---------------- STAGE HANDLING ---------------- */
+
+        function addStage() {
+
+        let stageNumber = formStages.length + 1;
+
+        formStages.push({
+        name: "Stage " + stageNumber,
+        "isCompleted": false,
+        fields: []
+        });
+
+        currentStageIndex = formStages.length - 1;
+
+        renderStageTabs();
+        renderFields();
+        }
+
+        function renderStageTabs() {
+
+        $("#stageTabs").html("");
+
+        formStages.forEach((s, i) => {
+
+        let activeClass = i === currentStageIndex ? "btn-primary" : "btn-outline-primary";
+
+        $("#stageTabs").append(`
+        <button class="btn ${activeClass}" onclick="switchStage(${i})">
+        ${s.name}
+        </button>
+        `);
+        });
+        }
+
+        function switchStage(index) {
+        currentStageIndex = index;
+        renderStageTabs();
+        renderFields();
+        }
+
+        /* ---------------- MODAL ---------------- */
+
+        function openModal() {
+        if (currentStageIndex === -1) {
+        alert("Please add a stage first");
+        return;
+        }
+
+        let modalEl = document.getElementById('fieldModal');
+        modalInstance = bootstrap.Modal.getOrCreateInstance(modalEl);
+        modalInstance.show();
+        }
+
+        function closeModal() {
+        let modalEl = document.getElementById('fieldModal');
+        let modal = bootstrap.Modal.getInstance(modalEl);
+
+        if (modal) {
+        modal.hide();
+        }
+        }
+
+        function resetForm() {
+
+        $("#fieldType").val('');
+        $("#labelName").val('');
+        $("#labelColor").val('#000000');
+
+        $("#optionSource").val("manual");
+        $("#optionsInput").val('').show();
+        $("#masterDropdown").hide().val('');
+
+        $("#isRequired").val("false");
+        $("#isBreak").val("false");
+
+        editIndex = -1;
+        }
+
+        /* ---------------- FIELD ADD ---------------- */
+
+        $("#addField").click(function () {
+
+        let type = $("#fieldType").val();
+
+        // ✅ Build base field object
+        let field = {
+        type: type,
+        label: $("#labelName").val(),
+        color: $("#labelColor").val(),
+        source: $("#optionSource").val(),
+        options: $("#optionsInput").val(),
+        masterId: $("#masterDropdown").val(),
+        required: $("#isRequired").val() === "true",
+        isBreak: $("#isBreak").val() === "true",
+
+        headingLevel: $("#headingLevel").val(),
+        fileAccept: $("#fileAccept").val(),
+        fileMultiple: $("#fileMultiple").is(":checked"),
+
+        // 🔥 NEW (for table)
+        tableColumns: []
+        };
+
+        /* ---------------- TABLE COLUMN BUILD ---------------- */
+
+        if (type === "table") {
+
+        let tableColumns = [];
+
+        $("#tableColumnsContainer .table-col-row").each(function () {
+
+        let name = $(this).find(".col-name").val();
+        let colType = $(this).find(".col-type").val();
+        let options = $(this).find(".col-options").val();
+
+        if (!name) return; // skip empty
+
+        tableColumns.push({
+        name: name,
+        type: colType,
+        stageIndex: parseInt($(this).find(".col-stage").val()), // 🔥 NEW
+        options: options ? options.split(',').map(x => x.trim()) : []
+        });
+        });
+
+        if (tableColumns.length === 0) {
+        alert("Add at least one table column");
+        return;
+        }
+
+        field.tableColumns = tableColumns;
+        }
+
+        /* ---------------- VALIDATION ---------------- */
+
+        if ((type === "dropdown" || type === "radio")) {
+
+        if (field.source === "manual" && !field.options) {
+        alert("Enter options");
+        return;
+        }
+
+        if (field.source === "master" && !field.masterId) {
+        alert("Select master");
+        return;
+        }
+        }
+
+        /* ---------------- SAVE ---------------- */
+
+        let stage = formStages[currentStageIndex];
+
+        if (editIndex === -1) {
+        stage.fields.push(field);
+        } else {
+        stage.fields[editIndex] = field;
+        editIndex = -1;
+        }
+
+        renderFields();
+        resetForm();
+        closeModal();
+        });
+        /* ---------------- RENDER ---------------- */
+
+        function renderFields() {
+
+        $("#formPreview").html("");
+
+        if (currentStageIndex === -1) return;
+
+        let fields = formStages[currentStageIndex].fields;
+
+        let currentRow = [];
+
+        fields.forEach((f, i) => {
+
+        if (f.isBreak && currentRow.length > 0) {
+        renderRow(currentRow);
+        currentRow = [];
+        }
+
+        currentRow.push({ field: f, index: i });
+
+        if (i === fields.length - 1) {
+        renderRow(currentRow);
+        }
+        });
+        }
+
+function renderRow(rowFields) {
+
+    let colSize = Math.floor(12 / rowFields.length);
+    let rowHtml = `<div class="row">`;
+
+    rowFields.forEach(item => {
+
+        let f = item.field;
+        let i = item.index;
+
+        let fieldName = f.label.replace(/\W+/g, '');
+
+        rowHtml += `
+        <div class="col-md-${colSize} mb-3">
+        <div class="field-card">
+
+        <div class="action-buttons">
+        <button onclick="editField(${i})">✏️</button>
+        <button onclick="deleteField(${i})">✖</button>
+        </div>
+        `;
+
+        // ✅ Skip label for heading & span
+        if (f.type !== "heading" && f.type !== "span") {
+            rowHtml += `
+            <label style="color:${f.color}; font-weight:bold;">
+            ${f.label}
+            ${f.required ? '<span style="color:red;">*</span>' : ''}
+            </label><br/>
+            `;
+        }
+
+        // 🔹 TEXT / NUMBER / DATE
+        if (f.type === "text" || f.type === "number" || f.type === "date") {
+            rowHtml += `
+            <input type="${f.type}"
+                   name="${fieldName}"
+                   class="form-control"
+                   ${f.required ? 'required' : ''}/>
+            `;
+        }
+
+        // 🔹 TEXTAREA
+        if (f.type === "textarea") {
+            rowHtml += `
+            <textarea name="${fieldName}"
+                      class="form-control"
+                      ${f.required ? 'required' : ''}></textarea>
+            `;
+        }
+
+        // 🔹 FILE
+        if (f.type === "file") {
+            rowHtml += `
+            <input type="file"
+                   name="${fieldName}"
+                   class="form-control"
+                   accept="${f.fileAccept || ''}"
+                   ${f.fileMultiple ? 'multiple' : ''}
+                   ${f.required ? 'required' : ''}/>
+            `;
+        }
+
+        // 🔹 DROPDOWN
+        if (f.type === "dropdown") {
+
+            let values = f.source === "manual"
+                ? f.options.split(',').map(x => x.trim())
+                : (masterDataMap[f.masterId] || []);
+
+            rowHtml += `<select name="${fieldName}" class="form-control" ${f.required ? 'required' : ''}>`;
+
+            values.forEach(v => {
+                rowHtml += `<option value="${v}">${v}</option>`;
+            });
+
+            rowHtml += `</select>`;
+        }
+
+        // 🔹 RADIO
+        if (f.type === "radio") {
+
+            let values = f.source === "manual"
+                ? f.options.split(',').map(x => x.trim())
+                : (masterDataMap[f.masterId] || []);
+
+            values.forEach(v => {
+                rowHtml += `
+                <label class="me-2">
+                <input type="radio" name="${fieldName}" value="${v}" ${f.required ? 'required' : ''}/> ${v}
+                </label>`;
+            });
+        }
+
+        // 🔥 TABLE (UPDATED PROPERLY)
+        if (f.type === "table") {
+
+        let columns = (f.tableColumns || []).filter(col => col.stageIndex <= currentStageIndex);
+            let tableId = "table_" + fieldName;
+
+            rowHtml += `
+            <table class="table table-bordered" id="${tableId}">
+                <thead>
+                    <tr>`;
+
+            columns.forEach(col => {
+                rowHtml += `<th>${col.name}</th>`;
+            });
+
+            rowHtml += `<th style="width:80px;">Action</th></tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+
+            <button type="button" class="btn btn-sm btn-success mt-2"
+                onclick="addTableRow('${tableId}', '${fieldName}', ${JSON.stringify(columns).replace(/"/g, '&quot;')})">
+                + Add Row
+            </button>
+            `;
+
+            // ✅ AUTO ADD FIRST ROW (FIXED)
+            setTimeout(() => {
+                addTableRow(tableId, fieldName, columns);
+            }, 0);
+        }
+
+        // 🔹 HEADING
+        if (f.type === "heading") {
+            let tag = f.headingLevel || "h3";
+            rowHtml += `<${tag}>${f.label}</${tag}>`;
+        }
+
+        // 🔹 SPAN
+        if (f.type === "span") {
+            rowHtml += `<span>${f.label}</span>`;
+        }
+
+        rowHtml += `</div></div>`;
+    });
+
+    rowHtml += `</div>`;
+
+    $("#formPreview").append(rowHtml);
+}
+
+        /* ---------------- EDIT / DELETE ---------------- */
+
+        function editField(i) {
+
+        let f = formStages[currentStageIndex].fields[i];
+
+        $("#fieldType").val(f.type).trigger("change");
+        $("#labelName").val(f.label);
+        $("#labelColor").val(f.color);
+        $("#optionSource").val(f.source).trigger("change");
+        $("#optionsInput").val(f.options);
+        $("#masterDropdown").val(f.masterId);
+        $("#isRequired").val(f.required.toString());
+        $("#isBreak").val(f.isBreak.toString());
+
+        editIndex = i;
+        openModal();
+        }
+
+        function deleteField(i) {
+        formStages[currentStageIndex].fields.splice(i, 1);
+        renderFields();
+        }
+
+        /* ---------------- FINAL SUBMIT ---------------- */
+
+        $("#submitForm").click(function () {
+
+        if (formStages.length === 0) {
+        alert("No stages added!");
+        return;
+        }
+
+        let formHtml = generateFullFormHTML();
+
+        $.ajax({
+        url: '/Home/SaveDynamicForm',
+        type: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify({
+        FormName: $("#formTitle").text().trim(),
+        FormJson: JSON.stringify(formStages),
+        FormHtml: formHtml   // ✅ FIX HERE
+        }),
+        success: function () {
+        alert("Saved successfully!");
+        }
+        });
+        });
+
+        $("#fieldType").change(function () {
+        let type = $(this).val();
+
+        $("#optionsDiv").toggle(type === "dropdown" || type === "radio");
+        $("#tableHeaderDiv").toggle(type === "table");
+        $("#headingLevelDiv").toggle(type === "heading");
+        $("#fileOptionsDiv").toggle(type === "file");
+        });
+
+
+        $("#optionSource").change(function () {
+
+        if ($(this).val() === "manual") {
+        $("#optionsInput").show();
+        $("#masterDropdown").hide();
+        } else {
+        $("#optionsInput").hide();
+        $("#masterDropdown").show();
+        loadMasterData();
+        }
+        });
+
+        function loadMasterData() {
+
+        let data = [
+        { id: 1, name: "Gender", values: ["Male", "Female"] },
+        { id: 2, name: "Department", values: ["HR", "IT"] },
+        { id: 3, name: "Country", values: ["India", "USA"] }
+        ];
+
+        masterDataMap = {};
+
+        $("#masterDropdown").empty();
+        $("#masterDropdown").append('<option value="">Select Master</option>');
+
+        data.forEach(x => {
+        masterDataMap[x.id] = x.values;
+        $("#masterDropdown").append(`<option value="${x.id}">${x.name}</option>`);
+        });
+        }
+
+
+        function generateFullFormHTML() {
+
+        let fullHtml = "";
+
+        formStages.forEach((stage, stageIndex) => {
+
+        // ✅ Wrap each stage
+        fullHtml += `<div class="stage-block" data-stage="${stageIndex}" style="display:${stageIndex === 0 ? 'block' : 'none'};">`;
+
+        let currentRow = [];
+
+        stage.fields.forEach((f, i) => {
+
+        if (f.isBreak && currentRow.length > 0) {
+        fullHtml += buildRowHTML(currentRow, stageIndex);
+        currentRow = [];
+        }
+
+        currentRow.push({ field: f, index: i });
+
+        if (i === stage.fields.length - 1) {
+        fullHtml += buildRowHTML(currentRow, stageIndex);
+        }
+        });
+
+        fullHtml += `</div>`; // ✅ close stage
+        });
+
+        return fullHtml;
+        }
+
+
+        function buildRowHTML(rowFields, stageIndex, isDisabled = false) {
+
+        let count = rowFields.length;
+
+        // ✅ Prevent layout breaking
+        let colSize = Math.max(3, Math.floor(12 / count));
+
+        let rowHtml = `<div class="row">`;
+
+        rowFields.forEach(item => {
+
+        let f = item.field;
+        let fieldName = f.label.replace(/\W+/g, '');
+
+        let requiredAttr = f.required ? 'required' : '';
+        let disabledAttr = isDisabled ? 'disabled' : '';
+
+        rowHtml += `
+        <div class="col-md-${colSize}">
+        <div class="mb-3">`;
+
+        // ✅ LABEL
+        if (f.type !== "heading" && f.type !== "span") {
+        rowHtml += `
+        <label style="color:${f.color}; font-weight:bold;">
+        ${f.label}
+        ${f.required ? '<span style="color:red;">*</span>' : ''}
+        </label>`;
+        }
+
+        // 🔹 INPUT TYPES
+        if (["text", "number", "date"].includes(f.type)) {
+        rowHtml += `
+        <input type="${f.type}"
+        name="${fieldName}"
+        class="form-control"
+        ${requiredAttr}
+        ${disabledAttr} />`;
+        }
+
+        // 🔹 TEXTAREA
+        if (f.type === "textarea") {
+        rowHtml += `
+        <textarea name="${fieldName}"
+        class="form-control"
+        ${requiredAttr}
+        ${disabledAttr}></textarea>`;
+        }
+
+        // 🔹 FILE
+        if (f.type === "file") {
+        rowHtml += `
+        <input type="file"
+        name="${fieldName}"
+        class="form-control"
+        accept="${f.fileAccept || ''}"
+        ${f.fileMultiple ? 'multiple' : ''}
+        ${requiredAttr}
+        ${disabledAttr} />`;
+        }
+
+        // 🔹 DROPDOWN
+        if (f.type === "dropdown") {
+
+        let values = f.source === "manual"
+        ? (f.options || "").split(',').map(x => x.trim())
+        : (masterDataMap[f.masterId] || []);
+
+        rowHtml += `
+        <select name="${fieldName}" class="form-control" ${requiredAttr} ${disabledAttr}>
+        <option value="">-- Select --</option>`;
+
+        values.forEach(v => {
+        rowHtml += `<option value="${v}">${v}</option>`;
+        });
+
+        rowHtml += `</select>`;
+        }
+
+        // 🔹 RADIO
+        if (f.type === "radio") {
+
+        let values = f.source === "manual"
+        ? (f.options || "").split(',').map(x => x.trim())
+        : (masterDataMap[f.masterId] || []);
+
+        values.forEach((v, index) => {
+        rowHtml += `
+        <label class="me-2">
+        <input type="radio"
+        name="${fieldName}"
+        value="${v}"
+        ${f.required && index === 0 ? 'required' : ''}
+        ${disabledAttr} />
+        ${v}
+        </label>`;
+        });
+        }
+
+        // 🔹 TABLE
+        if (f.type === "table") {
+
+        let columns = (f.tableColumns || [])
+        .filter(col => col.stageIndex <= stageIndex);
+
+        let tableId = "table_" + fieldName;
+
+        // ✅ Encode safely
+        let encodedColumns = encodeURIComponent(JSON.stringify(columns));
+
+        rowHtml += `
+        <table class="table table-bordered" id="${tableId}">
+        <thead>
+        <tr>`;
+
+        columns.forEach(col => {
+        rowHtml += `<th>${col.name}</th>`;
+        });
+
+        rowHtml += `
+        <th style="width:80px;">Action</th>
+        </tr>
+        </thead>
+        <tbody></tbody>
+        </table>`;
+
+        // ✅ IMPORTANT FIX HERE
+        if (!isDisabled) {
+        rowHtml += `
+        <button type="button"
+        class="btn btn-sm btn-success"
+        onclick="addTableRow('${tableId}', '${fieldName}', '${encodedColumns}')">
+        + Add Row
+        </button>`;
+        }
+        }
+
+        // 🔹 HEADING
+        if (f.type === "heading") {
+        let tag = f.headingLevel || "h3";
+        rowHtml += `<${tag}>${f.label}</${tag}>`;
+        }
+
+        // 🔹 SPAN
+        if (f.type === "span") {
+        rowHtml += `<span>${f.label}</span>`;
+        }
+
+        rowHtml += `</div></div>`;
+        });
+
+        rowHtml += `</div>`;
+
+        return rowHtml;
+        }
+
+        function addTableColumn(data = null) {
+
+        let options = "";
+
+        for (let i = currentStageIndex; i < formStages.length; i++) {
+        options += `<option value="${i}">Stage ${i + 1}</option>`;
+        }
+
+        let html = `
+        <div class="table-col-row border p-2 mb-2">
+
+        <input type="text" class="form-control mb-1 col-name"
+        placeholder="Column Name"
+        value="${data?.name || ''}" />
+
+        <select class="form-control mb-1 col-type">
+        <option value="text">Text</option>
+        <option value="textarea">Textarea</option>
+        <option value="dropdown">Dropdown</option>
+        <option value="radio">Radio</option>
+        </select>
+
+        <input type="text" class="form-control mb-1 col-options"
+        placeholder="Options (Yes,No)"
+        style="display:none;"
+        value="${data?.options ? data.options.join(',') : ''}" />
+
+        <!-- 🔥 NEW -->
+        <select class="form-control mb-1 col-stage">
+        ${options}
+        </select>
+
+        <button type="button" class="btn btn-danger btn-sm"
+        onclick="$(this).parent().remove()">Remove</button>
+
+        </div>`;
+
+        $("#tableColumnsContainer").append(html);
+
+        if (data) {
+        let last = $("#tableColumnsContainer .table-col-row:last");
+        last.find(".col-type").val(data.type);
+        last.find(".col-stage").val(data.stageIndex ?? currentStageIndex);
+        }
+        }
+
+        // Show options for dropdown/radio
+        $(document).on("change", ".col-type", function () {
+
+        let type = $(this).val();
+        let optionsInput = $(this).closest(".table-col-row").find(".col-options");
+
+        if (type === "dropdown" || type === "radio") {
+        optionsInput.show();
+        } else {
+        optionsInput.hide();
+        }
+        });
+
+        function addTableRow(tableId, fieldName, columns) {
+
+        let rowHtml = `<tr>`;
+
+        columns.forEach(col => {
+
+        let inputName = `${fieldName}_${col.name}[]`;
+
+        rowHtml += `<td>`;
+
+        if (col.type === "text") {
+        rowHtml += `<input type="text" class="form-control" name="${inputName}" />`;
+        }
+
+        if (col.type === "textarea") {
+        rowHtml += `<textarea class="form-control" name="${inputName}"></textarea>`;
+        }
+
+        if (col.type === "dropdown") {
+        rowHtml += `<select class="form-control" name="${inputName}">`;
+
+        col.options.forEach(opt => {
+        rowHtml += `<option value="${opt}">${opt}</option>`;
+        });
+
+        rowHtml += `</select>`;
+        }
+
+        if (col.type === "radio") {
+
+        col.options.forEach(opt => {
+        rowHtml += `
+        <label class="me-2">
+        <input type="radio" name="${inputName}" value="${opt}" /> ${opt}
+        </label>`;
+        });
+        }
+
+        rowHtml += `</td>`;
+        });
+
+        // ✅ DELETE BUTTON
+        rowHtml += `
+        <td>
+        <button type="button" class="btn btn-danger btn-sm" onclick="$(this).closest('tr').remove()">✖</button>
+        </td>`;
+
+        rowHtml += `</tr>`;
+
+        $("#" + tableId + " tbody").append(rowHtml);
+        }
+
+    </script>
+
+}

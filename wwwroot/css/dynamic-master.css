@@ -1,0 +1,209 @@
+﻿/* ================= GLOBAL ================= */
+
+body {
+    background: #f4f6f8;
+}
+
+/* ================= LAYOUT ================= */
+
+.layout {
+    display: flex;
+    height: calc(100vh - 80px);
+}
+
+/* ================= SIDEBAR ================= */
+
+.sidebar {
+    width: 260px;
+    background: #fff;
+    border-right: 1px solid #dee2e6;
+    padding: 12px;
+    overflow-y: auto;
+}
+
+.sidebar-header {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 8px;
+}
+
+.sidebar-node {
+    display: flex;
+    align-items: center;
+    padding: 4px 6px;
+    border-radius: 4px;
+}
+
+    .sidebar-node:hover {
+        background: #eef5ff;
+    }
+
+.toggle-icon {
+    width: 16px;
+    margin-right: 6px;
+    cursor: pointer;
+    user-select: none;
+}
+
+.sidebar-text {
+    cursor: pointer;
+}
+
+.sidebar-children {
+    margin-left: 18px;
+}
+
+/* ================= RIGHT CONTROLS ================= */
+
+.controls {
+    width: 240px;
+    background: #fff;
+    border-left: 1px solid #dee2e6;
+    padding: 15px;
+    overflow-y: auto;
+}
+
+.control-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    margin-bottom: 6px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    cursor: pointer;
+    background: #f9fbff;
+    font-size: 14px;
+}
+
+    .control-item:hover {
+        background: #0d6efd;
+        color: #fff;
+    }
+
+/* ================= OVERLAY ================= */
+
+.overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,.5);
+    display: none;
+    justify-content: center;
+    align-items: center;
+    z-index: 999;
+}
+
+/* ================= MASTER EDITOR ================= */
+
+.master-wrapper {
+    width: 950px;
+    height: 85vh;
+    background: #fff;
+    border: 2px solid #ff6a00;
+    border-radius: 6px;
+    display: flex;
+    flex-direction: column;
+}
+
+.master-header {
+    padding: 15px;
+    border-bottom: 1px solid #ddd;
+}
+
+.tree-container {
+    flex: 1;
+    overflow: auto;
+    padding: 10px;
+    background: #fafafa;
+}
+
+.master-footer {
+    padding: 10px;
+    border-top: 1px solid #ddd;
+    text-align: right;
+}
+
+/* ================= TREE EDITOR ================= */
+
+#headingContainer {
+    padding-left: 10px;
+}
+
+.node {
+    position: relative;
+    margin-left: 28px;
+}
+
+    .node::before {
+        content: "";
+        position: absolute;
+        top: -8px;
+        left: -14px;
+        width: 2px;
+        height: 100%;
+        background: #d6d6d6;
+    }
+
+#headingContainer > .node::before {
+    display: none;
+}
+
+.node-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: #fff;
+    padding: 8px;
+    border-radius: 6px;
+    margin-bottom: 6px;
+    border: 1px solid #e1e5ea;
+    position: relative;
+}
+
+    .node-row::before {
+        content: "";
+        position: absolute;
+        left: -14px;
+        top: 50%;
+        width: 14px;
+        height: 2px;
+        background: #d6d6d6;
+    }
+
+.toggle-btn {
+    width: 18px;
+    text-align: center;
+    cursor: pointer;
+    color: #6f42c1;
+}
+
+    .toggle-btn.hidden {
+        visibility: hidden;
+    }
+
+.node-row input {
+    flex: 1;
+    min-width: 200px;
+}
+
+.icon-btn {
+    border: none;
+    background: none;
+    cursor: pointer;
+    font-size: 18px;
+    padding: 4px;
+}
+
+    .icon-btn:hover {
+        background: #eef2ff;
+        border-radius: 4px;
+    }
+
+    .icon-btn.danger:hover {
+        background: #ffe5e5;
+    }
+
+.node-children {
+    margin-left: 22px;
+    margin-top: 4px;
+}

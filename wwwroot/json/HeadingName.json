@@ -1,0 +1,24 @@
+[
+  {
+    "id": "1001",
+    "name": "Admin Master",
+    "parentId": null,
+    "order": 1,
+    "children": [
+      {
+        "id": "1769320115566",
+        "name": "Unit",
+        "parentId": "1001",
+        "order": 1,
+        "children": []
+      },
+      {
+        "id": "1769320129637",
+        "name": "Facility",
+        "parentId": "1001",
+        "order": 2,
+        "children": []
+      }
+    ]
+  }
+]
