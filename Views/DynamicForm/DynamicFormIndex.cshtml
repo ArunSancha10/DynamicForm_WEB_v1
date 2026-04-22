@@ -2,6 +2,8 @@
     ViewData["Title"] = "Dynamic Form Builder";
 }
 
+
+
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
 
 <style>
@@ -30,37 +32,76 @@
     .field-card:hover .action-buttons {
         display: block;
     }
+
+    .form-placeholder {
+        border: 2px dashed #ccc;
+        padding: 30px;
+        border-radius: 6px;
+        text-align: center;
+        color: #666;
+        background: #fff;
+        cursor: pointer;
+    }
+
+    /* Stage tabs improvements: wrap when many tabs or allow horizontal scroll */
+    #stageTabs {
+        display: flex;
+        gap: 0.5rem;
+        align-items: center;
+        flex-wrap: wrap; /* allow wrapping to new lines */
+        max-width: 68vw; /* keep space for Create button on the right */
+        overflow-x: auto; /* allow scrolling when needed */
+        padding-bottom: 4px;
+    }
+
+    /* Make stage buttons slightly more compact */
+    #stageTabs .btn {
+        padding: .35rem .6rem;
+        white-space: nowrap;
+    }
+
+    /* Ensure delete small button stays compact */
+    #stageTabs .btn-sm {
+        padding: .25rem .45rem;
+    }
 </style>
 
 <div class="container mt-3">
 
 
 
-    <div class="d-flex justify-content-between mb-3">
-        <h3 id="formTitle">
-            Dynamic Form Builder
-            <button onclick="editTitle()">✏️</button>
-        </h3>
-
-        <div class="d-flex justify-content-between mb-2">
-            <div id="stageTabs" class="d-flex gap-2"></div>
-
-            <button class="btn btn-secondary" onclick="addStage()">
-                + Add Stage
-            </button>
+    <div class="d-flex align-items-start mb-3">
+        <div class="me-3">
+            <h3 id="formTitle" class="mb-1">
+                Dynamic Form Builder
+                <button onclick="editTitle()">✏️</button>
+            </h3>
+            <!-- optional small icon line if needed -->
         </div>
 
-        <!-- ✅ ONLY JS TRIGGER (Removed data-bs-toggle to avoid duplicate backdrop) -->
-        <button class="btn btn-primary" onclick="openModal()">
-            Create
-        </button>
+        <!-- center: stage tabs -->
+        <div class="flex-grow-1 d-flex justify-content-center">
+            <div id="stageTabs" class="d-flex gap-2"></div>
+        </div>
+
+        <!-- right: action buttons stacked -->
+        <div class="d-flex flex-column align-items-end ms-3 gap-2">
+            <button class="btn btn-secondary" onclick="addStage()">+ Add Stage</button>
+            <!-- ONLY JS TRIGGER (Removed data-bs-toggle to avoid duplicate backdrop) -->
+            <button class="btn btn-primary" onclick="openModal()">Create</button>
+        </div>
+    </div>
+
+    <!-- Stage Title (per-stage placeholder, clickable to edit) -->
+    <div class="mb-2">
+        <h4 id="stageTitle" class="mb-1" style="cursor:pointer;" onclick="editStageTitle()">Click to set stage title</h4>
     </div>
 
     <!-- FORM PREVIEW -->
     <div id="formPreview" class="form-builder-box"></div>
 
     <div class="text-end mt-3">
-        <button id="submitForm" class="btn btn-success">
+        <button id="submitForm" class="btn btn-success" style="display:none;">
             Submit Form
         </button>
     </div>
@@ -84,6 +125,7 @@
                     <option value="text">Textbox</option>
                     <option value="number">Number</option>
                     <option value="date">Date</option>
+                    <option value="checkbox">Checkbox</option>
                     <option value="textarea">Textarea</option>
                     <option value="file">File Upload</option>
                     <option value="dropdown">Dropdown</option>
@@ -132,6 +174,11 @@
                         <option value="master">From Master</option>
                     </select>
 
+                    <select id="optionDisplay" class="form-control mb-2">
+                        <option value="single">Single</option>
+                        <option value="row">Row</option>
+                    </select>
+
                     <input type="text" id="optionsInput" class="form-control mb-2" placeholder="Yes,No" />
 
                     <select id="masterDropdown" class="form-control" style="display:none;"></select>
@@ -171,30 +218,132 @@
 
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
     <script>
+        // Inline edit for form title: replace with input, save on Enter or blur
+        function editTitle() {
+            try {
+                const el = document.getElementById('formTitle');
+                // avoid opening multiple editors
+                if (el.querySelector('input')) return;
+
+                // get current title text (exclude button)
+                const clone = el.cloneNode(true);
+                const btn = clone.querySelector('button');
+                if (btn) btn.remove();
+                const currentText = clone.textContent.trim();
+
+                // build input and controls
+                const input = document.createElement('input');
+                input.type = 'text';
+                input.value = currentText;
+                input.className = 'form-control d-inline-block';
+                input.style.maxWidth = '400px';
+                input.style.display = 'inline-block';
+
+                const saveBtn = document.createElement('button');
+                saveBtn.className = 'btn btn-sm btn-primary ms-2';
+                saveBtn.textContent = 'Save';
+
+                const cancelBtn = document.createElement('button');
+                cancelBtn.className = 'btn btn-sm btn-secondary ms-1';
+                cancelBtn.textContent = 'Cancel';
+
+                // keep original html to restore on cancel
+                const originalHtml = el.innerHTML;
+
+                // replace contents
+                el.innerHTML = '';
+                el.appendChild(input);
+                el.appendChild(saveBtn);
+                el.appendChild(cancelBtn);
+
+                input.focus();
+
+                function finishSave() {
+                    const newTitle = input.value.trim() || 'Dynamic Form Builder';
+                    el.innerHTML = `${newTitle} <button onclick="editTitle()">✏️</button>`;
+                }
+
+                saveBtn.addEventListener('click', finishSave);
+                cancelBtn.addEventListener('click', function () {
+                    el.innerHTML = originalHtml;
+                });
+
+                input.addEventListener('keydown', function (e) {
+                    if (e.key === 'Enter') finishSave();
+                    if (e.key === 'Escape') el.innerHTML = originalHtml;
+                });
+
+                // save on blur (with small delay to allow click handlers)
+                input.addEventListener('blur', function () {
+                    setTimeout(function () {
+                        if (document.activeElement !== saveBtn && document.activeElement !== cancelBtn) {
+                            finishSave();
+                        }
+                    }, 150);
+                });
+            } catch (e) {
+                console.error('editTitle error', e);
+            }
+        }
         let formStages = [];
         let currentStageIndex = -1;
         let editIndex = -1;
         let masterDataMap = {};
+        let masterList = [];
         let modalInstance = null;
 
         /* ---------------- STAGE HANDLING ---------------- */
 
         function addStage() {
+            // Ask user for a stage title (required and must be unique)
+            Swal.fire({
+                title: 'Stage Title',
+                input: 'text',
+                inputPlaceholder: 'Enter stage title',
+                showCancelButton: true,
+                confirmButtonText: 'Add',
+                preConfirm: (value) => {
+                    if (!value || !value.trim()) {
+                        Swal.showValidationMessage('Title is required');
+                        return false;
+                    }
 
-        let stageNumber = formStages.length + 1;
+                    // ensure uniqueness
+                    let exists = formStages.some(s => s.title && s.title.toLowerCase() === value.trim().toLowerCase());
+                    if (exists) {
+                        Swal.showValidationMessage('Title must be unique');
+                        return false;
+                    }
 
-        formStages.push({
-        name: "Stage " + stageNumber,
-        "isCompleted": false,
-        fields: []
-        });
+                    return value.trim();
+                }
+            }).then((result) => {
+                if (!result.isConfirmed) return;
 
-        currentStageIndex = formStages.length - 1;
+                let stageNumber = formStages.length + 1;
+                formStages.push({
+                    name: "Stage " + stageNumber,
+                    title: result.value,
+                    isCompleted: false,
+                    fields: []
+                });
 
-        renderStageTabs();
-        renderFields();
+                // ensure master data is available for new stage columns
+                loadMasterData();
+
+                currentStageIndex = formStages.length - 1;
+
+                // clear any open modal/options for a fresh stage
+                resetForm();
+
+                updateStageTitleDisplay();
+                renderStageTabs();
+                renderFields();
+                updateSubmitVisibility();
+            });
         }
 
         function renderStageTabs() {
@@ -205,25 +354,130 @@
 
         let activeClass = i === currentStageIndex ? "btn-primary" : "btn-outline-primary";
 
+        // show a small delete button for each stage only when more than one stage exists
+        let deleteBtnHtml = '';
+        if (formStages.length > 1) {
+            // stopPropagation to avoid triggering the stage switch when clicking delete
+            deleteBtnHtml = ` <button type="button" class="btn btn-sm btn-outline-danger ms-1" onclick="event.stopPropagation(); deleteStage(${i})">✖</button>`;
+        }
+
+        let displayTitle = s.title ? s.title : s.name + ' (Click to set title)';
+
         $("#stageTabs").append(`
-        <button class="btn ${activeClass}" onclick="switchStage(${i})">
-        ${s.name}
-        </button>
+            <div class="d-inline-flex align-items-center">
+                <button class="btn ${activeClass}" onclick="switchStage(${i})">
+                    ${displayTitle}
+                </button>
+                ${deleteBtnHtml}
+            </div>
         `);
         });
         }
 
         function switchStage(index) {
+        // clear modal inputs/options when switching stages
+        resetForm();
+
         currentStageIndex = index;
+        // update visible per-stage title
+        updateStageTitleDisplay();
         renderStageTabs();
         renderFields();
+        updateSubmitVisibility();
+        }
+
+        function editStageTitle() {
+            if (currentStageIndex === -1) {
+                Swal.fire({ icon: 'warning', text: 'Please add a stage first' });
+                return;
+            }
+
+            let current = formStages[currentStageIndex].title || '';
+
+            Swal.fire({
+                title: 'Edit Stage Title',
+                input: 'text',
+                inputValue: current,
+                showCancelButton: true,
+                preConfirm: (value) => {
+                    if (!value || !value.trim()) {
+                        Swal.showValidationMessage('Title is required');
+                        return false;
+                    }
+
+                    // uniqueness check (allow same if it's the same stage)
+                    let exists = formStages.some((s, idx) => idx !== currentStageIndex && s.title && s.title.toLowerCase() === value.trim().toLowerCase());
+                    if (exists) {
+                        Swal.showValidationMessage('Title must be unique');
+                        return false;
+                    }
+                    return value.trim();
+                }
+            }).then((result) => {
+                if (!result.isConfirmed) return;
+                formStages[currentStageIndex].title = result.value;
+                updateStageTitleDisplay();
+                renderStageTabs();
+            });
+        }
+
+        function updateStageTitleDisplay() {
+            let el = document.getElementById('stageTitle');
+            if (!el) return;
+            if (currentStageIndex === -1) {
+                el.innerHTML = 'Click to set stage title';
+                return;
+            }
+            let t = formStages[currentStageIndex].title || ('Stage ' + (currentStageIndex + 1) + ' (Click to set title)');
+            el.innerHTML = t + ' <button onclick="editStageTitle()">✏️</button>';
+        }
+
+        function deleteStage(index) {
+            try {
+                Swal.fire({
+                    title: 'Confirm',
+                    text: 'Are you sure you want to delete this stage?',
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonText: 'Yes',
+                    cancelButtonText: 'Cancel'
+                }).then((result) => {
+                    if (!result.isConfirmed) return;
+
+                    formStages.splice(index, 1);
+
+                    // clear any modal/options when a stage is removed
+                    resetForm();
+
+                    // renumber remaining stages (Stage 1..N)
+                    formStages.forEach((s, idx) => s.name = 'Stage ' + (idx + 1));
+
+                    // adjust current stage index:
+                    if (formStages.length === 0) {
+                        currentStageIndex = -1;
+                    } else if (currentStageIndex === index) {
+                        // if deleted the currently selected stage, move selection to same index or previous if at end
+                        currentStageIndex = Math.min(index, formStages.length - 1);
+                    } else if (currentStageIndex > index) {
+                        // if selection was after deleted index, shift left
+                        currentStageIndex -= 1;
+                    }
+
+                    updateStageTitleDisplay();
+                    renderStageTabs();
+                    renderFields();
+                    updateSubmitVisibility();
+                });
+            } catch (e) {
+                console.error('deleteStage error', e);
+            }
         }
 
         /* ---------------- MODAL ---------------- */
 
         function openModal() {
         if (currentStageIndex === -1) {
-        alert("Please add a stage first");
+        Swal.fire({ icon: 'warning', text: 'Please add a stage first' });
         return;
         }
 
@@ -239,20 +493,48 @@
         if (modal) {
         modal.hide();
         }
+
+        // ensure submit visibility is updated whenever fields are rendered
+        updateSubmitVisibility();
+        }
+
+        function updateSubmitVisibility() {
+            try {
+                const btn = document.getElementById('submitForm');
+                if (!btn) return;
+
+                if (formStages.length === 0) {
+                    btn.style.display = 'none';
+                    return;
+                }
+
+                // only show when on the last stage
+                if (currentStageIndex === formStages.length - 1) {
+                    btn.style.display = 'inline-block';
+                } else {
+                    btn.style.display = 'none';
+                }
+            } catch (e) {
+                console.error('updateSubmitVisibility error', e);
+            }
         }
 
         function resetForm() {
-
         $("#fieldType").val('');
         $("#labelName").val('');
         $("#labelColor").val('#000000');
 
         $("#optionSource").val("manual");
         $("#optionsInput").val('').show();
+        $("#optionDisplay").val('single');
         $("#masterDropdown").hide().val('');
 
         $("#isRequired").val("false");
         $("#isBreak").val("false");
+
+        // Clear any table column settings from previous edits
+        $("#tableColumnsContainer").empty();
+        $("#tableHeaderDiv").hide();
 
         editIndex = -1;
         }
@@ -269,6 +551,7 @@
         label: $("#labelName").val(),
         color: $("#labelColor").val(),
         source: $("#optionSource").val(),
+        display: $("#optionDisplay").val(),
         options: $("#optionsInput").val(),
         masterId: $("#masterDropdown").val(),
         required: $("#isRequired").val() === "true",
@@ -294,18 +577,28 @@
         let colType = $(this).find(".col-type").val();
         let options = $(this).find(".col-options").val();
 
+        let colSource = $(this).find('.col-option-source').val() || 'manual';
+        let colMasterId = $(this).find('.col-master').val();
+
         if (!name) return; // skip empty
+
+        let colDisplay = $(this).find('.col-option-display').val() || 'single';
 
         tableColumns.push({
         name: name,
         type: colType,
         stageIndex: parseInt($(this).find(".col-stage").val()), // 🔥 NEW
-        options: options ? options.split(',').map(x => x.trim()) : []
+        source: colSource,
+        masterId: colMasterId || null,
+        display: colDisplay,
+        options: (colSource === 'manual')
+            ? (options ? options.split(',').map(x => x.trim()) : [])
+            : (masterDataMap[colMasterId] || [])
         });
         });
 
         if (tableColumns.length === 0) {
-        alert("Add at least one table column");
+        Swal.fire({ icon: 'warning', text: 'Add at least one table column' });
         return;
         }
 
@@ -314,7 +607,7 @@
 
         /* ---------------- VALIDATION ---------------- */
 
-        if ((type === "dropdown" || type === "radio")) {
+        if ((type === "dropdown" || type === "radio" || type === "checkbox")) {
 
         if (field.source === "manual" && !field.options) {
         alert("Enter options");
@@ -367,6 +660,12 @@
         renderRow(currentRow);
         }
         });
+
+        // if no fields at this stage, show placeholder to prompt adding
+        if (!fields || fields.length === 0) {
+            let placeholder = `<div class="form-placeholder" onclick="openModal()">Click to add fields for this stage</div>`;
+            $("#formPreview").append(placeholder);
+        }
         }
 
 function renderRow(rowFields) {
@@ -463,6 +762,32 @@ function renderRow(rowFields) {
             });
         }
 
+        // 🔹 CHECKBOX
+        if (f.type === "checkbox") {
+
+            let values = f.source === "manual"
+                ? f.options.split(',').map(x => x.trim())
+                : (masterDataMap[f.masterId] || []);
+
+            let displayMode = f.display || 'single';
+
+            values.forEach(v => {
+                if (displayMode === 'row') {
+                    rowHtml += `
+                    <div>
+                    <label>
+                    <input type="checkbox" name="${fieldName}[]" value="${v}" ${f.required ? 'required' : ''}/> ${v}
+                    </label>
+                    </div>`;
+                } else {
+                    rowHtml += `
+                    <label class="me-2">
+                    <input type="checkbox" name="${fieldName}[]" value="${v}" ${f.required ? 'required' : ''}/> ${v}
+                    </label>`;
+                }
+            });
+        }
+
         // 🔥 TABLE (UPDATED PROPERLY)
         if (f.type === "table") {
 
@@ -524,18 +849,46 @@ function renderRow(rowFields) {
         $("#labelName").val(f.label);
         $("#labelColor").val(f.color);
         $("#optionSource").val(f.source).trigger("change");
+        $("#optionDisplay").val(f.display || 'single');
         $("#optionsInput").val(f.options);
         $("#masterDropdown").val(f.masterId);
         $("#isRequired").val(f.required.toString());
         $("#isBreak").val(f.isBreak.toString());
 
         editIndex = i;
+        // Populate table columns if editing a table
+        if (f.type === 'table') {
+            // ensure master data is loaded so column master selects are populated
+            loadMasterData();
+            $("#tableColumnsContainer").empty();
+            (f.tableColumns || []).forEach(col => addTableColumn(col));
+            $("#tableHeaderDiv").show();
+        } else {
+            $("#tableColumnsContainer").empty();
+            $("#tableHeaderDiv").hide();
+        }
+
         openModal();
         }
 
         function deleteField(i) {
-        formStages[currentStageIndex].fields.splice(i, 1);
-        renderFields();
+        try {
+            Swal.fire({
+                title: 'Confirm',
+                text: 'Are you sure you want to delete this field?',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonText: 'Yes',
+                cancelButtonText: 'Cancel'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    formStages[currentStageIndex].fields.splice(i, 1);
+                    renderFields();
+                }
+            });
+        } catch (e) {
+            console.error('deleteField error', e);
+        }
         }
 
         /* ---------------- FINAL SUBMIT ---------------- */
@@ -545,6 +898,14 @@ function renderRow(rowFields) {
         if (formStages.length === 0) {
         alert("No stages added!");
         return;
+        }
+
+        // Validate every stage has a title
+        for (let i = 0; i < formStages.length; i++) {
+            if (!formStages[i].title || !formStages[i].title.trim()) {
+                Swal.fire({ icon: 'warning', text: 'Please provide titles for all stages before saving.' });
+                return;
+            }
         }
 
         let formHtml = generateFullFormHTML();
@@ -559,7 +920,7 @@ function renderRow(rowFields) {
         FormHtml: formHtml   // ✅ FIX HERE
         }),
         success: function () {
-        alert("Saved successfully!");
+        Swal.fire({ icon: 'success', text: 'Saved successfully!' });
         }
         });
         });
@@ -567,7 +928,7 @@ function renderRow(rowFields) {
         $("#fieldType").change(function () {
         let type = $(this).val();
 
-        $("#optionsDiv").toggle(type === "dropdown" || type === "radio");
+        $("#optionsDiv").toggle(type === "dropdown" || type === "radio" || type === "checkbox");
         $("#tableHeaderDiv").toggle(type === "table");
         $("#headingLevelDiv").toggle(type === "heading");
         $("#fileOptionsDiv").toggle(type === "file");
@@ -589,19 +950,48 @@ function renderRow(rowFields) {
         function loadMasterData() {
 
         let data = [
-        { id: 1, name: "Gender", values: ["Male", "Female"] },
-        { id: 2, name: "Department", values: ["HR", "IT"] },
-        { id: 3, name: "Country", values: ["India", "USA"] }
+        {
+        id: 1,
+        name: "Gender",
+        values: ["Male", "Female", "Other"]
+        },
+        {
+        id: 2,
+        name: "Department",
+        values: ["HR", "IT", "Finance", "Marketing", "Sales", "Admin"]
+        },
+        {
+        id: 3,
+        name: "Country",
+        values: ["India", "USA", "UK", "Canada", "Australia", "Germany"]
+        },
+        {
+        id: 4,
+        name: "Skills",   // ✅ New checklist
+        values: [
+        "C#",
+        "JavaScript",
+        "HTML",
+        "CSS",
+        "SQL",
+        "React",
+        ".NET",
+        "Angular",
+        "Azure",
+        "Git"
+        ]
+        }
         ];
 
         masterDataMap = {};
+        masterList = data; // store master list for table column master select
 
         $("#masterDropdown").empty();
         $("#masterDropdown").append('<option value="">Select Master</option>');
 
         data.forEach(x => {
-        masterDataMap[x.id] = x.values;
-        $("#masterDropdown").append(`<option value="${x.id}">${x.name}</option>`);
+            masterDataMap[x.id] = x.values;
+            $("#masterDropdown").append(`<option value="${x.id}">${x.name}</option>`);
         });
         }
 
@@ -724,13 +1114,48 @@ function renderRow(rowFields) {
         ? (f.options || "").split(',').map(x => x.trim())
         : (masterDataMap[f.masterId] || []);
 
+        let displayMode = f.display || 'single';
+
         values.forEach((v, index) => {
+        if (displayMode === 'row') {
+            rowHtml += `
+            <div>
+            <label>
+            <input type="radio"
+            name="${fieldName}"
+            value="${v}"
+            ${f.required && index === 0 ? 'required' : ''}
+            ${disabledAttr} />
+            ${v}
+            </label>
+            </div>`;
+        } else {
+            rowHtml += `
+            <label class="me-2">
+            <input type="radio"
+            name="${fieldName}"
+            value="${v}"
+            ${f.required && index === 0 ? 'required' : ''}
+            ${disabledAttr} />
+            ${v}
+            </label>`;
+        }
+        });
+        }
+
+        // 🔹 CHECKBOX
+        if (f.type === "checkbox") {
+
+        let values = f.source === "manual"
+        ? (f.options || "").split(',').map(x => x.trim())
+        : (masterDataMap[f.masterId] || []);
+
+        values.forEach((v) => {
         rowHtml += `
         <label class="me-2">
-        <input type="radio"
-        name="${fieldName}"
+        <input type="checkbox"
+        name="${fieldName}[]"
         value="${v}"
-        ${f.required && index === 0 ? 'required' : ''}
         ${disabledAttr} />
         ${v}
         </label>`;
@@ -795,12 +1220,27 @@ function renderRow(rowFields) {
         }
 
         function addTableColumn(data = null) {
-
-        let options = "";
-
-        for (let i = currentStageIndex; i < formStages.length; i++) {
-        options += `<option value="${i}">Stage ${i + 1}</option>`;
+        // ensure master list is loaded so per-column master select is populated
+        if (!masterList || masterList.length === 0) {
+            loadMasterData();
         }
+
+        // determine initial options input visibility and value
+        let optionsStyle = 'display:none;';
+        let optionsValue = '';
+        let initialType = data?.type || 'text';
+        let initialSource = data?.source || 'manual';
+        let initialMaster = data?.masterId || '';
+        if (data && data.source === 'manual' && (data.type === 'dropdown' || data.type === 'radio' || data.type === 'checkbox')) {
+            optionsStyle = '';
+            optionsValue = data.options ? data.options.join(',') : '';
+        }
+
+        // build master options HTML from masterList
+        let masterOptionsHtml = '';
+        masterList.forEach(m => {
+            masterOptionsHtml += `<option value="${m.id}">${m.name}</option>`;
+        });
 
         let html = `
         <div class="table-col-row border p-2 mb-2">
@@ -811,20 +1251,38 @@ function renderRow(rowFields) {
 
         <select class="form-control mb-1 col-type">
         <option value="text">Text</option>
+        <option value="number">Number</option>
+        <option value="date">Date</option>
         <option value="textarea">Textarea</option>
+        <option value="file">File Upload</option>
         <option value="dropdown">Dropdown</option>
         <option value="radio">Radio</option>
+        <option value="checkbox">Checkbox</option>
+        <option value="heading">Heading</option>
+        <option value="span">Span</option>
         </select>
 
         <input type="text" class="form-control mb-1 col-options"
         placeholder="Options (Yes,No)"
-        style="display:none;"
-        value="${data?.options ? data.options.join(',') : ''}" />
+        style="${optionsStyle}"
+        value="${optionsValue}" />
 
-        <!-- 🔥 NEW -->
-        <select class="form-control mb-1 col-stage">
-        ${options}
+        <select class="form-control mb-1 col-option-source">
+            <option value="manual">Manual</option>
+            <option value="master">From Master</option>
         </select>
+
+        <select class="form-control mb-1 col-option-display">
+            <option value="single">Single</option>
+            <option value="row">Row</option>
+        </select>
+
+        <select class="form-control mb-1 col-master" style="display:none;">
+            <option value="">Select Master</option>
+        </select>
+
+        <!-- Stage selection removed (use current stage). Keep hidden input to store stageIndex -->
+        <input type="hidden" class="col-stage" value="${data?.stageIndex ?? currentStageIndex}" />
 
         <button type="button" class="btn btn-danger btn-sm"
         onclick="$(this).parent().remove()">Remove</button>
@@ -833,11 +1291,31 @@ function renderRow(rowFields) {
 
         $("#tableColumnsContainer").append(html);
 
-        if (data) {
         let last = $("#tableColumnsContainer .table-col-row:last");
-        last.find(".col-type").val(data.type);
-        last.find(".col-stage").val(data.stageIndex ?? currentStageIndex);
+        // set the type, source and stage (stage might be from older saved data)
+        last.find(".col-type").val(initialType);
+        last.find(".col-option-source").val(initialSource);
+        last.find('.col-option-display').val(data?.display || 'single');
+        // ensure hidden stage index is set (preserve existing data or current stage)
+        last.find(".col-stage").val(data?.stageIndex ?? currentStageIndex);
+        // set options value and master selection explicitly, then trigger change handlers
+        if (data) {
+            last.find(".col-options").val(optionsValue);
+            last.find(".col-master").val(initialMaster);
         }
+        last.find('.col-type').trigger('change');
+        last.find('.col-option-source').trigger('change');
+        last.find('.col-option-display').trigger('change');
+
+        // populate per-column master select from masterList (do after appended to DOM)
+        let masterSelect = last.find('.col-master');
+        masterSelect.empty();
+        masterSelect.append('<option value="">Select Master</option>');
+        masterList.forEach(m => {
+            masterSelect.append(`<option value="${m.id}">${m.name}</option>`);
+        });
+        // re-set master value if provided
+        if (initialMaster) masterSelect.val(initialMaster);
         }
 
         // Show options for dropdown/radio
@@ -846,18 +1324,80 @@ function renderRow(rowFields) {
         let type = $(this).val();
         let optionsInput = $(this).closest(".table-col-row").find(".col-options");
 
-        if (type === "dropdown" || type === "radio") {
-        optionsInput.show();
+        let optionSource = $(this).closest('.table-col-row').find('.col-option-source');
+        let masterSelect = $(this).closest('.table-col-row').find('.col-master');
+
+        if (type === "dropdown" || type === "radio" || type === 'checkbox') {
+            // show source selector and then defer to its handler to show options/master
+            optionSource.show();
+            // trigger change so it applies current source visibility
+            optionSource.trigger('change');
+            // show display selector
+            let optionDisplay = $(this).closest('.table-col-row').find('.col-option-display');
+            optionDisplay.show();
+            optionDisplay.trigger('change');
         } else {
-        optionsInput.hide();
+            optionsInput.hide();
+            optionSource.hide();
+            masterSelect.hide();
+            $(this).closest('.table-col-row').find('.col-option-display').hide();
         }
+        });
+
+        // Handle option source change (manual vs master) inside table column rows
+        $(document).on('change', '.col-option-source', function () {
+            let val = $(this).val();
+            let row = $(this).closest('.table-col-row');
+            if (val === 'manual') {
+                row.find('.col-options').show();
+                row.find('.col-master').hide();
+            } else {
+                row.find('.col-options').hide();
+                let masterSelect = row.find('.col-master');
+                // ensure masterList is populated
+                if (!masterList || masterList.length === 0) loadMasterData();
+                masterSelect.empty();
+                masterSelect.append('<option value="">Select Master</option>');
+                masterList.forEach(m => {
+                    masterSelect.append(`<option value="${m.id}">${m.name}</option>`);
+                });
+                masterSelect.show();
+            }
+        });
+
+        // Handle option display change (single vs row)
+        $(document).on('change', '.col-option-display', function () {
+            let val = $(this).val();
+            let row = $(this).closest('.table-col-row');
+            // just store/display; rendering handled during buildRowHTML/addTableRow
+            if (val === 'row') {
+                row.find('.col-options').attr('data-display','row');
+            } else {
+                row.find('.col-options').attr('data-display','single');
+            }
+        });
+
+        // Confirm before removing a table column entry in the editor
+        $(document).on('click', '.remove-col-btn', function () {
+            if (!confirm('Remove this column?')) return;
+            $(this).closest('.table-col-row').remove();
         });
 
         function addTableRow(tableId, fieldName, columns) {
 
+        // columns may be passed as an encoded JSON string (from buildRowHTML) or as an array
+        if (typeof columns === 'string') {
+            try {
+                columns = JSON.parse(decodeURIComponent(columns));
+            } catch (e) {
+                // fallback: try to parse as already-encoded json
+                try { columns = JSON.parse(columns); } catch (e) { columns = []; }
+            }
+        }
+
         let rowHtml = `<tr>`;
 
-        columns.forEach(col => {
+        (columns || []).forEach(col => {
 
         let inputName = `${fieldName}_${col.name}[]`;
 
@@ -891,13 +1431,34 @@ function renderRow(rowFields) {
         });
         }
 
+        if (col.type === "checkbox") {
+        // check display mode: default single (inline), or row (stacked)
+        let displayMode = col.display || 'single';
+
+        col.options.forEach(opt => {
+        if (displayMode === 'row') {
+            rowHtml += `
+            <div>
+            <label>
+            <input type="checkbox" name="${inputName}" value="${opt}" /> ${opt}
+            </label>
+            </div>`;
+        } else {
+            rowHtml += `
+            <label class="me-2">
+            <input type="checkbox" name="${inputName}" value="${opt}" /> ${opt}
+            </label>`;
+        }
+        });
+        }
+
         rowHtml += `</td>`;
         });
 
-        // ✅ DELETE BUTTON
+        // ✅ DELETE BUTTON with confirmation
         rowHtml += `
         <td>
-        <button type="button" class="btn btn-danger btn-sm" onclick="$(this).closest('tr').remove()">✖</button>
+        <button type="button" class="btn btn-danger btn-sm delete-table-row-btn">✖</button>
         </td>`;
 
         rowHtml += `</tr>`;

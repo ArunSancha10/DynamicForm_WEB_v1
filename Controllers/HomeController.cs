@@ -316,6 +316,17 @@ namespace DynamicMaster.WEB.Controllers
                 // 🔥 SAVE VALUES (NEW)
                 stages[model.StageIndex].values = model.StageValues ?? new Dictionary<string, JsonElement>();
 
+                // preserve or update name/title if client provided them
+                if (!string.IsNullOrWhiteSpace(model.StageName))
+                {
+                    stages[model.StageIndex].name = model.StageName;
+                }
+
+                if (!string.IsNullOrWhiteSpace(model.StageTitle))
+                {
+                    stages[model.StageIndex].title = model.StageTitle;
+                }
+
                 // 🔥 Save back
                 matchedData.FormJson = System.Text.Json.JsonSerializer.Serialize(stages);
 

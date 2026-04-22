@@ -33,6 +33,7 @@ namespace DynamicMaster.WEB.Models
     public class StageDto
     {
         public string name { get; set; }
+        public string title { get; set; }
         public bool isCompleted { get; set; }
 
         public Dictionary<string, JsonElement> values { get; set; } // ✅ NEW
@@ -59,5 +60,12 @@ namespace DynamicMaster.WEB.Models
         public int Version { get; set; }
 
         public Dictionary<string, JsonElement> StageValues { get; set; } // ✅ FIXED
+
+        // optional metadata from client to preserve name/title when saving
+        public string StageName { get; set; }
+        public string StageTitle { get; set; }
+
+        // optional full form JSON from client (stringified)
+        public string FormJson { get; set; }
     }
 }

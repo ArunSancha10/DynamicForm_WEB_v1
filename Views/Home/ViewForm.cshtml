@@ -16,6 +16,7 @@
 <div class="container mt-4">
 
     <h3>@ViewBag.FormName</h3>
+    <div id="stageTopTitle" class="mb-2"></div>
 
     <form id="dynamicForm">
 
@@ -37,10 +38,11 @@
 @section Scripts {
 
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
     <script>
 
-        let currentStageIndex = @ViewBag.CurrentStageIndex;
+        let currentStageIndex = parseInt("@ViewBag.CurrentStageIndex") || 0;
 
         const formName = $("<textarea>").html("@ViewBag.FormName").text().replace(/\n/g, "").trim();
         const version = parseInt("@ViewBag.Version") || 0;
@@ -54,14 +56,49 @@
         : stagesRaw;
 
         // ✅ If wrapped
-        if (!Array.isArray(stages) && stages.stages) {
+        if (!Array.isArray(stages) && stages && stages.stages) {
         stages = stages.stages;
         }
+
+// helper to HTML-escape (available to all handlers)
+function safeEncode(str) {
+    return $('<div/>').text(str || '').html();
+}
 
 
         $(document).ready(function () {
 
         $(".stage-block").hide();
+
+
+
+        // show top title area
+        function setTopStageTitle(title) {
+            const el = $('#stageTopTitle');
+            if (!title) { el.html(''); return; }
+            el.html('<h5 style="margin:0;">' + safeEncode(title) + '</h5>');
+        }
+
+        // resolve a stage title from various possible properties
+        function getStageTitle(stage, index) {
+            debugger;
+            if (!stage) return 'Stage ' + (index + 1);
+            return stage.title || stage.name || stage.Title || stage.Name || stage.stageTitle || stage.stage_name || ('Stage ' + (index + 1));
+        }
+
+        try {
+            console.log('stages:', stages, 'currentStageIndex:', currentStageIndex);
+            if (Array.isArray(stages) && stages.length > 0) {
+                var st = stages[currentStageIndex] || stages[0];
+                var topTitle = getStageTitle(st, currentStageIndex);
+                if (topTitle) setTopStageTitle(topTitle);
+            }
+        } catch (e) { console.error(e); }
+
+        // If all stages are completed, show a fixed "Completed" title instead
+        if (isAllCompleted) {
+            setTopStageTitle('Completed');
+        }
 
         // 🔥 FUNCTION TO LOAD TABLE DATA
         function loadTableData(stageBlock, stageValues) {
@@ -193,132 +230,172 @@
 
         /* ---------------- SUBMIT ---------------- */
 
-$("#submitData").click(function () {
+        // use parsed stages from server-side ViewBag
+        let formJson = stages;
 
-    let btn = $(this);
-    let isValid = true;
+        $("#submitData").click(function () {
 
-    let stageBlock = $(`.stage-block[data-stage="${currentStageIndex}"]`);
+        let btn = $(this);
+        let isValid = true;
 
-    /* ---------------- VALIDATION ---------------- */
+        let stageBlock = $(`.stage-block[data-stage="${currentStageIndex}"]`);
 
-    stageBlock.find("input[required], select[required]").each(function () {
+        /* ---------------- VALIDATION ---------------- */
+
+        stageBlock.find("input[required], select[required]").each(function () {
 
         if (!$(this).val()) {
-            $(this).css("border", "1px solid red");
-            isValid = false;
+        $(this).css("border", "1px solid red");
+        isValid = false;
         } else {
-            $(this).css("border", "");
+        $(this).css("border", "");
         }
-    });
+        });
 
-    if (!isValid) {
-        alert("Please fill required fields");
+        if (!isValid) {
+        Swal.fire({
+            icon: 'warning',
+            title: 'Validation',
+            text: 'Please fill required fields'
+        });
         return;
-    }
+        }
 
-    let stageData = {};
+        let stageData = {};
 
-    /* ---------------- NORMAL FIELDS ---------------- */
+        /* ---------------- NORMAL FIELDS ---------------- */
 
-    stageBlock.find("input, select, textarea").each(function () {
+        stageBlock.find("input, select, textarea").each(function () {
 
         let name = $(this).attr("name");
         if (!name) return;
 
-        // skip table fields
         if (name.includes("[]")) return;
 
         let type = $(this).attr("type");
 
         if (type === "radio") {
-            if ($(this).is(":checked")) {
-                stageData[name] = $(this).val();
-            }
-        } else {
-            stageData[name] = $(this).val();
+        if ($(this).is(":checked")) {
+        stageData[name] = $(this).val();
         }
-    });
+        } else {
+        stageData[name] = $(this).val();
+        }
+        });
 
-    /* ---------------- TABLE DATA ---------------- */
+        /* ---------------- TABLE DATA ---------------- */
 
-    stageBlock.find("table").each(function () {
+        stageBlock.find("table").each(function () {
 
         let table = $(this);
         let tableId = table.attr("id");
 
         let rows = [];
 
-        table.find("tbody tr").each(function (rowIndex) {
+        table.find("tbody tr").each(function () {
 
-            let rowData = {};
-            let hasValue = false;
+        let rowData = {};
+        let hasValue = false;
 
-            $(this).find("input, select, textarea").each(function () {
+        $(this).find("input, select, textarea").each(function () {
 
-                let name = $(this).attr("name");
-                if (!name) return;
+        let name = $(this).attr("name");
+        if (!name) return;
 
-                let cleanName = name.replace("[]", "");
+        let cleanName = name.replace("[]", "");
+        let type = $(this).attr("type");
+        let value = "";
 
-                let type = $(this).attr("type");
-                let value = "";
+        if (type === "radio") {
+        if ($(this).is(":checked")) {
+        value = $(this).val();
+        } else {
+        return;
+        }
+        } else {
+        value = $(this).val();
+        }
 
-                // 🔥 FIX: RADIO handling per row
-                if (type === "radio") {
+        if (value) hasValue = true;
 
-                    if ($(this).is(":checked")) {
-                        value = $(this).val();
-                    } else {
-                        return;
-                    }
-                } else {
-                    value = $(this).val();
-                }
-
-                if (value) hasValue = true;
-
-                rowData[cleanName] = value;
-            });
-
-            // 🔥 FIX: Skip empty rows
-            if (hasValue) {
-                rows.push(rowData);
-            }
+        rowData[cleanName] = value;
         });
 
-        // only save if rows exist
-        if (rows.length > 0) {
-            stageData[tableId] = rows;
+        if (hasValue) {
+        rows.push(rowData);
         }
-    });
+        });
 
-    /* ---------------- SUBMIT ---------------- */
+        if (rows.length > 0) {
+        stageData[tableId] = rows;
+        }
+        });
 
-    btn.prop("disabled", true).text("Saving...");
+        /* ✅ MERGE CURRENT STAGE INTO formJson AND PREPARE PAYLOAD */
 
-    $.ajax({
+        let stageInfo = formJson[currentStageIndex] || {};
+
+        // merge collected values into the in-memory formJson so server receives full form
+        formJson[currentStageIndex] = formJson[currentStageIndex] || {};
+        // preserve or set name/title so they are not lost when server saves
+        formJson[currentStageIndex].name = stageInfo.name || formJson[currentStageIndex].name || ('Stage ' + (currentStageIndex + 1));
+        formJson[currentStageIndex].title = stageInfo.title || stageInfo.Title || formJson[currentStageIndex].title || null;
+
+        formJson[currentStageIndex].values = stageData;
+        // mirror existing flag name used in persisted JSON
+        formJson[currentStageIndex].isCompleted = true;
+
+        let payload = {
+        FormName: formName,
+        StageIndex: currentStageIndex,
+        Version: version,
+
+        // 🔥 IMPORTANT
+        StageName: formJson[currentStageIndex].name,
+        StageTitle: formJson[currentStageIndex].title,
+        IsCompleted: true,
+
+        StageValues: stageData,
+
+        // send full updated form JSON to avoid server overwriting other stages
+        FormJson: JSON.stringify(formJson)
+        };
+
+        /* ---------------- SUBMIT ---------------- */
+
+        btn.prop("disabled", true).text("Saving...");
+
+        let TitleValue = payload.StageTitle + ' Saved Successfully!!';
+
+        $.ajax({
         url: '/Home/UpdateStageCompletion',
         type: 'POST',
         contentType: 'application/json',
-        data: JSON.stringify({
-            FormName: formName,
-            StageIndex: currentStageIndex,
-            Version: version,
-            StageValues: stageData
-        }),
-        success: function () {
-            alert("Stage Saved Successfully!");
-            window.location.href = '/Home/ListForms';
-        },
-        error: function (err) {
-            console.error(err);
-            alert("Error saving stage");
-            btn.prop("disabled", false).text("Submit");
-        }
-    });
+        data: JSON.stringify(payload),
 
-});
+        success: function () {
+        // show minimal confirmation
+        Swal.fire({
+            icon: 'success',
+        title: TitleValue,
+            confirmButtonText: 'OK'
+        }).then(function () {
+            window.location.href = '/Home/ListForms';
+        });
+        },
+
+        error: function (err) {
+        console.error(err);
+        Swal.fire({
+            icon: 'error',
+            title: 'Error',
+            text: 'Error saving stage'
+        });
+        btn.prop("disabled", false).text("Submit");
+        }
+        });
+
+        });
 
 
 
@@ -366,7 +443,11 @@ $("#submitData").click(function () {
         if (rows > 1) {
         $(btn).closest("tr").remove();
         } else {
-        alert("At least one row required");
+        Swal.fire({
+            icon: 'warning',
+            title: 'Cannot remove',
+            text: 'At least one row required'
+        });
         }
         }
 
